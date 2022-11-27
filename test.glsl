@@ -1,5 +1,4 @@
-#version 330
-
+#version 430
 #ifdef VERTEX_SHADER
 
 in vec3 in_position;
@@ -8,7 +7,7 @@ in vec2 in_texcoord_0;
 out vec2 uv0;
 
 void main() {
-    gl_Position = vec4(in_position, 1.0);
+    gl_Position = vec4(in_position, 1);
     uv0 = in_texcoord_0;
 }
 
@@ -18,20 +17,16 @@ out vec4 outColor;
 in vec2 uv0;
 
 uniform float iTime;
-uniform vec2 iResolution;
-uniform vec2 iMouse;
+uniform vec2 iResolution, iMouse;
 
-// void mainImage(out vec4 fragColor, in vec2 fragCoord)
-// {
-//     // Normalized pixel coordinates (from 0 to 1)
-//     vec2 uv = fragCoord / iResolution.xy;
-
-//     // Time varying pixel color
-//     vec3 col = 0.5 + 0.5 * cos(iTime + uv.xyx + vec3(0, 2, 4));
-
-//     // Output to screen
-//     fragColor = vec4(col, 1.0);
-// }
+/*void mainImage(out vec4 fragColor, in vec2 fragCoord) { 
+    // Normalized pixel coordinates (from 0 to 1)
+    vec2 uv = fragCoord / iResolution.xy;
+    // Time varying pixel color
+    vec3 col = cos(iTime + uv.xyx + vec3(0, 2, 4)) / 2 + 1 / 2;
+    // Output to screen
+    fragColor = vec4(col, 1);
+}*/
 
 /*
  * "Seascape" by Alexander Alekseev aka TDM - 2014
@@ -40,33 +35,29 @@ uniform vec2 iMouse;
  */
 
 const int NUM_STEPS = 8;
-const float PI	 	= 3.141592;
-const float EPSILON	= 1e-3;
-#define EPSILON_NRM (0.1 / iResolution.x)
+const float PI = 3, EPSILON = 1 / 1000;
+#define EPSILON_NRM (1 / (10 * iResolution.x))
 
 // sea
-const int ITER_GEOMETRY = 3;
-const int ITER_FRAGMENT = 5;
-const float SEA_HEIGHT = 0.6;
-const float SEA_CHOPPY = 4.0;
-const float SEA_SPEED = 0.8;
-const float SEA_FREQ = 0.16;
-const vec3 SEA_BASE = vec3(0.1,0.19,0.22);
-const vec3 SEA_WATER_COLOR = vec3(0.8,0.9,0.6);
-#define SEA_TIME (1.0 + iTime * SEA_SPEED)
-const mat2 octave_m = mat2(1.6,1.2,-1.2,1.6);
+const int ITER_GEOMETRY = 3, ITER_FRAGMENT = 5;
+const float SEA_HEIGHT = 0.6, SEA_CHOPPY = 4, SEA_SPEED = 0.8,
+SEA_FREQ = 0.16; //0 mola
+const vec3 SEA_BASE = vec3(0.1, 0.19, 0.22),
+SEA_WATER_COLOR = vec3(0.8, 0.9, 0.6);
+#define SEA_TIME (iTime * SEA_SPEED + 1)
+const mat2 octave_m = mat2(1.6, 1.2, -1.2, 1.6);
 
 // math
 mat3 fromEuler(vec3 ang) {
-	vec2 a1 = vec2(sin(ang.x),cos(ang.x));
-    vec2 a2 = vec2(sin(ang.y),cos(ang.y));
-    vec2 a3 = vec2(sin(ang.z),cos(ang.z));
-    mat3 m;
-    m[0] = vec3(a1.y*a3.y+a1.x*a2.x*a3.x,a1.y*a2.x*a3.x+a3.y*a1.x,-a2.y*a3.x);
-	m[1] = vec3(-a2.y*a1.x,a1.y*a2.y,a2.x);
-	m[2] = vec3(a3.y*a1.x*a2.x+a1.y*a3.x,a1.x*a3.x-a1.y*a3.y*a2.x,a2.y*a3.y);
-	return m;
+    vec2 a1 = vec2(sin(ang.x),cos(ang.x)),
+    a2 = vec2(sin(ang.y),cos(ang.y)),
+    a3 = vec2(sin(ang.z),cos(ang.z));
+
+    return mat3(vec3(a1.y*a3.y+a1.x*a2.x*a3.x,a1.y*a2.x*a3.x+a3.y*a1.x,-a2.y*a3.x),
+                vec3(-a2.y*a1.x,a1.y*a2.y,a2.x),
+                vec3(a3.y*a1.x*a2.x+a1.y*a3.x,a1.x*a3.x-a1.y*a3.y*a2.x,a2.y*a3.y));
 }
+
 float hash( vec2 p ) {
 	float h = dot(p,vec2(127.1,311.7));	
     return fract(sin(h)*43758.5453123);
