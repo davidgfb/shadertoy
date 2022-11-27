@@ -95,14 +95,14 @@ float sea_octave(vec2 uv, float choppy) {
     return pow(1 - pow(wv.x * wv.y, 0.65), choppy);
 }
 
-float map(vec3 p) {
+float map(vec3 p, int iter = ITER_GEOMETRY) {
     float freq = SEA_FREQ, amp = SEA_HEIGHT, choppy = SEA_CHOPPY;
     vec2 uv = p.xz;
     uv.x = 3 * uv.x / 4;
     
     float d, h = 0;    
 
-    for(int i = 0; i < ITER_GEOMETRY; i++) {        
+    for(int i = 0; i < iter; i++) {        
     	d = sea_octave(freq * (uv + SEA_TIME), choppy);
     	d += sea_octave(freq * (uv - SEA_TIME), choppy);
         h += d * amp;        
@@ -116,25 +116,7 @@ float map(vec3 p) {
 }
 
 float map_detailed(vec3 p) {
-    return map(p);
-    
-    /*float freq = SEA_FREQ, amp = SEA_HEIGHT, choppy = SEA_CHOPPY;
-    vec2 uv = p.xz;
-    uv.x = 3 * uv.x / 4;
-    
-    float d, h = 0;    
-
-    for(int i = 0; i < ITER_FRAGMENT; i++) {        
-    	d = sea_octave(freq * (uv + SEA_TIME), choppy);
-    	d += sea_octave(freq * (uv - SEA_TIME), choppy);
-        h += d * amp;        
-    	uv *= octave_m;
-        freq = 19 * freq / 10;
-        amp = 22 * amp / 100;
-        choppy = mix(choppy, 1.0, 0.2);
-    }
-    
-    return p.y - h;*/
+    return map(p, ITER_FRAGMENT);
 }
 
 vec3 getSeaColor(vec3 p, vec3 n, vec3 l, vec3 eye, vec3 dist) {  
