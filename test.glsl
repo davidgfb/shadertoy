@@ -1,4 +1,4 @@
-#version 430
+#version 460
 #ifdef VERTEX_SHADER
 
 in vec3 in_position;
@@ -41,7 +41,7 @@ const float PI = 3, EPSILON = 1 / 1000;
 // sea
 const int ITER_GEOMETRY = 3, ITER_FRAGMENT = 5;
 const float SEA_HEIGHT = 0.6, SEA_CHOPPY = 4, SEA_SPEED = 0.8,
-SEA_FREQ = 0.16; //0 mola
+            SEA_FREQ = 0.16; //0 mola
 const vec3 SEA_BASE = vec3(0.1, 0.19, 0.22),
 SEA_WATER_COLOR = vec3(0.8, 0.9, 0.6);
 #define SEA_TIME (iTime * SEA_SPEED + 1)
@@ -49,85 +49,92 @@ const mat2 octave_m = mat2(1.6, 1.2, -1.2, 1.6);
 
 // math
 mat3 fromEuler(vec3 ang) {
-    vec2 a1 = vec2(sin(ang.x),cos(ang.x)),
-    a2 = vec2(sin(ang.y),cos(ang.y)),
-    a3 = vec2(sin(ang.z),cos(ang.z));
+    vec2 a1 = vec2(sin(ang.x), cos(ang.x)),
+         a2 = vec2(sin(ang.y), cos(ang.y)),
+         a3 = vec2(sin(ang.z), cos(ang.z));
 
-    return mat3(vec3(a1.y*a3.y+a1.x*a2.x*a3.x,a1.y*a2.x*a3.x+a3.y*a1.x,-a2.y*a3.x),
-                vec3(-a2.y*a1.x,a1.y*a2.y,a2.x),
-                vec3(a3.y*a1.x*a2.x+a1.y*a3.x,a1.x*a3.x-a1.y*a3.y*a2.x,a2.y*a3.y));
+    return mat3(vec3(a1.y * a3.y + a1.x * a2.x * a3.x, a1.y * a2.x * a3.x + a3.y * a1.x, -a2.y * a3.x),
+                vec3(-a2.y * a1.x, a1.y * a2.y, a2.x),
+                vec3(a3.y * a1.x * a2.x + a1.y * a3.x, a1.x * a3.x - a1.y * a3.y * a2.x, a2.y * a3.y));
 }
 
-float hash( vec2 p ) {
-	float h = dot(p,vec2(127.1,311.7));	
-    return fract(sin(h)*43758.5453123);
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
 }
-float noise( in vec2 p ) {
-    vec2 i = floor( p );
-    vec2 f = fract( p );	
-	vec2 u = f*f*(3.0-2.0*f);
-    return -1.0+2.0*mix( mix( hash( i + vec2(0.0,0.0) ), 
-                     hash( i + vec2(1.0,0.0) ), u.x),
-                mix( hash( i + vec2(0.0,1.0) ), 
-                     hash( i + vec2(1.0,1.0) ), u.x), u.y);
+
+float noise(in vec2 p) {
+    vec2 i = floor(p), f = fract(p), u = f * f * (3 - 2 * f);
+
+    return -1 + 2 * mix(mix(hash(i + vec2(0, 0)), 
+           hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), 
+           hash(i + vec2(1, 1)), u.x), u.y);
 }
 
 // lighting
-float diffuse(vec3 n,vec3 l,float p) {
-    return pow(dot(n,l) * 0.4 + 0.6,p);
+float diffuse(vec3 n, vec3 l, float p) {
+    return pow(2 / 5 * dot(n, l) + 3 / 5, p);
 }
-float specular(vec3 n,vec3 l,vec3 e,float s) {    
-    float nrm = (s + 8.0) / (PI * 8.0);
-    return pow(max(dot(reflect(e,n),l),0.0),s) * nrm;
+float specular(vec3 n, vec3 l, vec3 e, float s) {    
+    float nrm = (s + 8) / (8 * PI);
+    return pow(max(dot(reflect(e, n), l), 0), s) * nrm;
 }
 
 // sky
 vec3 getSkyColor(vec3 e) {
-    e.y = max(e.y,0.0);
-    return vec3(pow(1.0-e.y,2.0), 1.0-e.y, 0.6+(1.0-e.y)*0.4);
+    e.y = max(e.y, 0);
+
+    return vec3(pow(1 - e.y, 2), 1 - e.y, 0.4 * (1 - e.y) + 0.6);
 }
 
 // sea
 float sea_octave(vec2 uv, float choppy) {
     uv += noise(uv);        
-    vec2 wv = 1.0-abs(sin(uv));
-    vec2 swv = abs(cos(uv));    
-    wv = mix(wv,swv,wv);
-    return pow(1.0-pow(wv.x * wv.y,0.65),choppy);
+    vec2 wv = 1 - abs(sin(uv)), swv = abs(cos(uv));    
+    wv = mix(wv, swv, wv);
+
+    return pow(1 - pow(wv.x * wv.y, 0.65), choppy);
 }
 
 float map(vec3 p) {
-    float freq = SEA_FREQ;
-    float amp = SEA_HEIGHT;
-    float choppy = SEA_CHOPPY;
-    vec2 uv = p.xz; uv.x *= 0.75;
+    float freq = SEA_FREQ, amp = SEA_HEIGHT, choppy = SEA_CHOPPY;
+    vec2 uv = p.xz;
+    uv.x = 3 * uv.x / 4;
     
-    float d, h = 0.0;    
+    float d, h = 0;    
+
     for(int i = 0; i < ITER_GEOMETRY; i++) {        
-    	d = sea_octave((uv+SEA_TIME)*freq,choppy);
-    	d += sea_octave((uv-SEA_TIME)*freq,choppy);
+    	d = sea_octave(freq * (uv + SEA_TIME), choppy);
+    	d += sea_octave(freq * (uv - SEA_TIME), choppy);
         h += d * amp;        
-    	uv *= octave_m; freq *= 1.9; amp *= 0.22;
-        choppy = mix(choppy,1.0,0.2);
+    	uv *= octave_m;
+        freq = 19 * freq / 10;
+        amp = 22 * amp / 100;
+        choppy = mix(choppy, 1.0, 0.2);
     }
+
     return p.y - h;
 }
 
 float map_detailed(vec3 p) {
-    float freq = SEA_FREQ;
-    float amp = SEA_HEIGHT;
-    float choppy = SEA_CHOPPY;
-    vec2 uv = p.xz; uv.x *= 0.75;
+    return map(p);
     
-    float d, h = 0.0;    
+    /*float freq = SEA_FREQ, amp = SEA_HEIGHT, choppy = SEA_CHOPPY;
+    vec2 uv = p.xz;
+    uv.x = 3 * uv.x / 4;
+    
+    float d, h = 0;    
+
     for(int i = 0; i < ITER_FRAGMENT; i++) {        
-    	d = sea_octave((uv+SEA_TIME)*freq,choppy);
-    	d += sea_octave((uv-SEA_TIME)*freq,choppy);
+    	d = sea_octave(freq * (uv + SEA_TIME), choppy);
+    	d += sea_octave(freq * (uv - SEA_TIME), choppy);
         h += d * amp;        
-    	uv *= octave_m; freq *= 1.9; amp *= 0.22;
-        choppy = mix(choppy,1.0,0.2);
+    	uv *= octave_m;
+        freq = 19 * freq / 10;
+        amp = 22 * amp / 100;
+        choppy = mix(choppy, 1.0, 0.2);
     }
-    return p.y - h;
+    
+    return p.y - h;*/
 }
 
 vec3 getSeaColor(vec3 p, vec3 n, vec3 l, vec3 eye, vec3 dist) {  
