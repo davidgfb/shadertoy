@@ -120,82 +120,80 @@ float map_detailed(vec3 p) {
 }
 
 vec3 getSeaColor(vec3 p, vec3 n, vec3 l, vec3 eye, vec3 dist) {  
-    float fresnel = clamp(1.0 - dot(n,-eye), 0.0, 1.0);
-    fresnel = pow(fresnel,3.0) * 0.65;
+    float fresnel = 65 * pow(clamp(1 - dot(n, -eye), 0, 1), 3) / 100;
         
-    vec3 reflected = getSkyColor(reflect(eye,n));    
-    vec3 refracted = SEA_BASE + diffuse(n,l,80.0) * SEA_WATER_COLOR * 0.12; 
+    vec3 reflected = getSkyColor(reflect(eye, n)),
+         refracted = diffuse(n, l, 80) * 12 * SEA_WATER_COLOR / 100 + SEA_BASE; 
     
     vec3 color = mix(refracted,reflected,fresnel);
     
-    float atten = max(1.0 - dot(dist,dist) * 0.001, 0.0);
-    color += SEA_WATER_COLOR * (p.y - SEA_HEIGHT) * 0.18 * atten;
-    
-    color += vec3(specular(n,l,eye,60.0));
-    
-    return color;
+    float atten = max(1 - dot(dist,dist) / 1000, 0);
+        
+    return color + SEA_WATER_COLOR * (p.y - SEA_HEIGHT) * 18 / 100 * atten + vec3(specular(n, l, eye, 60));
 }
 
 // tracing
 vec3 getNormal(vec3 p, float eps) {
-    vec3 n;
-    n.y = map_detailed(p);    
-    n.x = map_detailed(vec3(p.x+eps,p.y,p.z)) - n.y;
-    n.z = map_detailed(vec3(p.x,p.y,p.z+eps)) - n.y;
-    n.y = eps;
-    return normalize(n);
+    float ny = map_detailed(p);    
+     
+    return normalize(vec3(map_detailed(vec3(p.x + eps, p.y, p.z)) - ny,
+                          eps, map_detailed(vec3(p.x, p.y, p.z + eps)) - ny));
 }
 
 float heightMapTracing(vec3 ori, vec3 dir, out vec3 p) {  
-    float tm = 0.0;
-    float tx = 1000.0;    
-    float hx = map(ori + dir * tx);
-    if(hx > 0.0) return tx;   
-    float hm = map(ori + dir * tm);    
-    float tmid = 0.0;
+    float tm = 0, tx = 1000, hx = map(ori + dir * tx);
+
+    if(hx > 0) return tx;
+    
+    float hm = map(ori + dir * tm), tmid = 0.0;
+
     for(int i = 0; i < NUM_STEPS; i++) {
-        tmid = mix(tm,tx, hm/(hm-hx));                   
+        tmid = mix(tm, tx, hm /(hm - hx));                   
         p = ori + dir * tmid;                   
     	float hmid = map(p);
-		if(hmid < 0.0) {
-        	tx = tmid;
+
+	if(hmid < 0) {
+            tx = tmid;
             hx = hmid;
         } else {
             tm = tmid;
             hm = hmid;
         }
     }
+
     return tmid;
 }
 
 // main
-void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
-	vec2 uv = fragCoord.xy / iResolution.xy;
-    uv = uv * 2.0 - 1.0;
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    vec2 uv = fragCoord.xy / iResolution.xy;
+    uv = uv * 2 - 1;
     uv.x *= iResolution.x / iResolution.y;    
-    float time = iTime * 0.3 + iMouse.x*0.01;
+    float time = iTime * 3 / 10 + iMouse.x / 100; //0 guay
         
     // ray
-    vec3 ang = vec3(sin(time*3.0)*0.1,sin(time)*0.2+0.3,time);    
-    vec3 ori = vec3(0.0,3.5,time*5.0);
-    vec3 dir = normalize(vec3(uv.xy,-2.0)); dir.z += length(uv) * 0.15;
-    dir = normalize(dir) * fromEuler(ang);
+    vec3 ang = vec3(sin(time * 3) * 1 / 10,
+                    sin(time) * 2 / 10 + 3 / 10,
+                    time),
+         ori = vec3(0, 3.5, time * 5),
+         dir = normalize(normalize(vec3(uv.xy, -2))) * fromEuler(ang);
     
     // tracing
-    vec3 p;
-    heightMapTracing(ori,dir,p);
-    vec3 dist = p - ori;
-    vec3 n = getNormal(p, dot(dist,dist) * EPSILON_NRM);
-    vec3 light = normalize(vec3(0.0,1.0,0.8)); 
+    vec3 p = vec3(0);
+
+    heightMapTracing(ori, dir, p);
+
+    vec3 dist = p - ori,
+         n = getNormal(p, dot(dist,dist) * EPSILON_NRM),
+         light = normalize(vec3(0, 1, 8 / 10)); 
              
     // color
-    vec3 color = mix(
-        getSkyColor(dir),
-        getSeaColor(p,n,light,dir,dist),
-    	pow(smoothstep(0.0,-0.05,dir.y),0.3));
+    vec3 color = mix(getSkyColor(dir),
+                     getSeaColor(p, n, light, dir, dist),
+                     pow(smoothstep(0.0, -0.05, dir.y), 0.3));
         
     // post
-	fragColor = vec4(pow(color,vec3(0.75)), 1.0);
+    fragColor = vec4(pow(color, vec3(1) * 3 / 4), 1);
 }
 
 void main() {
